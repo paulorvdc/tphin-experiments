@@ -15,5 +15,8 @@ GCN submodule based on https://github.com/dbusbridge/gcn_tutorial
 ## metapath2vec
 metapath2vec stesubmodule based on https://stellargraph.readthedocs.io/en/stable/demos/link-prediction/metapath2vec-link-prediction.html
 
+## networks
+networks with news from http://soybeansandcorn.com/ available at: https://drive.google.com/drive/folders/14fWE3FzU_EPhs6lPbDnv4nJOkR-BcL5u?usp=sharing
+
 ## wip
 updates with improvements new experiments, methods, data and usability features will be posted with the research progress.
