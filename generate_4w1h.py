@@ -1,13 +1,7 @@
 import pandas as pd
 from copy import deepcopy
 
-def period_year(date, interval):
-    string = ''
-    func_dict = {
-            'week': string + str(date.week) + '-' + str(date.year),
-            'month': string + str(date.month) + '-' + str(date.year),
-        }
-    return func_dict[interval]
+from tphin_utils import period_year
 
 df = pd.read_parquet('/media/pauloricardo/basement/commodities_usecase/soybean_corn.parquet')
 

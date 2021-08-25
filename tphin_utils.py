@@ -23,85 +23,6 @@ def difference(start, end, interval):
         }
     return r[interval]
 
-def make_hin(X, df, id_feature='GKGRECORDID', date_feature='date_str', theme_feature='Themes', location_feature='Locations', person_feature='Persons', org_feature='Organizations'):
-    G = nx.Graph()
-    for index,row in df.iterrows():
-        node_id = row[id_feature]
-        # date conversion
-        date_value = pd.to_datetime(row[date_feature], format='%Y-%m-%d')
-        node_date = str(date_value.week) + '-' + str(date_value.year)
-        #node_themes_array = ''
-        node_locations_array = ''
-        node_people_array = ''
-        node_organizations_array = ''
-        try:
-            node_themes_array = row[theme_feature].split(';')
-        except:
-            node_themes_array = []
-        try:
-            node_locations_array = row[location_feature].split(';')
-        except:
-            node_locations_array = []
-        try:
-            node_people_array = row[person_feature].split(';')
-        except:
-            node_people_array = []
-        try:
-            node_organizations_array = row[org_feature].split(';')
-        except:
-            node_organizations_array = []
-        
-        # event <-> date
-        G.add_edge(node_id,node_date,edge_type='event_date', edge_value=date_value)
-        G.nodes[node_id]['node_type'] = 'event'
-        G.nodes[node_date]['node_type'] = 'date'
-        # event <-> theme
-        for theme in node_themes_array:
-            if len(theme) > 0:
-                G.add_edge(node_id,theme,edge_type='event_theme')
-                G.nodes[theme]['node_type'] = 'theme'
-        # event <-> locations
-        for location in node_locations_array:
-            if len(location) > 0:
-                G.add_edge(node_id,location,edge_type='event_location')
-                G.nodes[location]['node_type'] = 'location'
-        # event <-> persons
-        for person in node_people_array:
-            if len(person) > 0:
-                G.add_edge(node_id,person,edge_type='event_person')
-                G.nodes[person]['node_type'] = 'person'
-        # event <-> organization
-        for org in node_organizations_array:
-            if len(org) > 0:
-                G.add_edge(node_id,org,edge_type='event_org')
-                G.nodes[org]['node_type'] = 'org'
-        # embedding
-        G.nodes[node_id]['embedding'] = X[index]
-    return G
-
-def inner_connections(G, interval='week', embedding_feature='embedding', type_feature='edge_type', desired_type_feature='event_date', value_feature='edge_value', return_type_feature='event_event'):
-    edges_to_add = []
-    for node1, neighbor1 in G.edges:
-        if embedding_feature in G.nodes[node1]:
-            if G[node1][neighbor1][type_feature] == desired_type_feature:
-                for node2, neighbor2 in G.edges:
-                    if embedding_feature in G.nodes[node2]:
-                        if G[node2][neighbor2][type_feature] == desired_type_feature:
-                            temp_cosine = cosine(G.nodes[node1][embedding_feature], G.nodes[node2][embedding_feature])
-                            if temp_cosine <= 0.5 and temp_cosine != 0.0:
-                                if abs(difference(G[node1][neighbor1][value_feature], G[node2][neighbor2][value_feature], interval)) <= 3:
-                                    edges_to_add.append((node1,node2))
-    for new_edge in edges_to_add:
-        G.add_edge(new_edge[0],new_edge[1],edge_type=return_type_feature)
-    return G
-
-def is_equal(x, true_feature='true', restored_feature='restored'):
-    if x[true_feature][0] == x[restored_feature][0] and x[true_feature][1] == x[restored_feature][1]:
-        return 1
-    elif x[true_feature][0] == x[restored_feature][1] and x[true_feature][1] == x[restored_feature][0]:
-        return 1
-    return 0
-
 from sklearn.metrics import accuracy_score
 from sklearn.metrics import precision_score
 from sklearn.metrics import recall_score
@@ -115,48 +36,6 @@ def get_metric(metric, true, pred):
         return recall_score(list(true), list(pred), average='macro')
     elif metric == 'f1':
         return f1_score(list(true), list(pred), average='macro')
-
-def disturbed_hin(G, split=0.1, random_state=None, edge_type=['event_date', 'event_event', 'event_location', 'event_person', 'event_org', 'event_theme'], type_feature='edge_type'):
-    """
-    G: hin;
-    split: percentage to be cut from the hin;
-    random_state: ;
-    edge_type: listlike object of types of edges to be cut;
-    type_feature: feature name of edge_type on your hin.
-    """
-    def keep_left(x, G):
-        edge_split = x['type'].split('_')
-        if G.nodes[x['node']]['node_type'] != edge_split[0]:
-            x['node'], x['neighbor'] = x['neighbor'], x['node']
-        return x
-    
-    # prepare data for type counting
-    edges = list(G.edges)
-    edge_types = []
-    for node, neighbor in edges:
-        edge_types.append(G[node][neighbor][type_feature])
-    
-    edges = pd.DataFrame(edges)
-    edges = edges.rename(columns={0: 'node', 1: 'neighbor'})
-    edges['type'] = edge_types
-    edges = edges.apply(keep_left, G=G, axis=1)    
-    edges_group = edges.groupby(by=['type'], as_index=False).count().reset_index()
-
-    # preparar arestas para eliminar
-    edges = edges.sample(frac=1, random_state=random_state).reset_index(drop=True)
-    edges_group = edges_group.rename(columns={'node': 'count', 'neighbor': 'to_cut_count'})
-    edges_group['to_cut_count'] = edges_group['to_cut_count'].apply(lambda x:round(x * split))
-    to_cut = {}
-    for index, row in edges_group.iterrows():
-        if row['type'] in edge_type:
-            to_cut[row['type']] = edges[edges['type'] == row['type']].reset_index(drop=True).loc[0:row['to_cut_count']-1]
-                    
-    # eliminar arestas, salvar grafo e arestas retiradas para avaliação
-    G_disturbed = deepcopy(G)
-    for key, tc_df in to_cut.items():
-        for index, row in tc_df.iterrows():
-            G_disturbed.remove_edge(row['node'],row['neighbor'])
-    return G_disturbed, to_cut
 
 def regularization(G, dim=512, embedding_feature: str = 'embedding', iterations=15, mi=0.85):
     nodes = []
@@ -195,43 +74,6 @@ def regularization(G, dim=512, embedding_feature: str = 'embedding', iterations=
         pbar.set_description(message)
     return G
 
-def get_knn_data(G, node, embedding_feature: str = 'f'):
-    knn_data, knn_nodes = [], []
-    for node in nx.non_neighbors(G, node):
-        if embedding_feature in G.nodes[node]:
-            knn_data.append(G.nodes[node][embedding_feature])
-            knn_nodes.append(node)
-    return pd.DataFrame(knn_data), pd.DataFrame(knn_nodes)
-
-def restore_hin(G, cutted_dict, node_feature='node', neighbor_feature='neighbor', node_type_feature='node_type', embedding_feature='f'):
-    G_restored = deepcopy(G)
-    
-    restored_dict = {'true': [], 'restored': [], 'edge_type': []}
-    for key, value in cutted_dict.items():
-        for index, row in tqdm(value.iterrows(), total=value.shape[0]):
-            edge_to_add = key.split('_')
-            if edge_to_add[0] == G_restored.nodes[row[node_feature]][node_type_feature]:
-                edge_to_add[0] = row[node_feature]
-            else:
-                edge_to_add[1] = row[node_feature]
-            edge_to_add = [row[node_feature] if e == G_restored.nodes[row[node_feature]][node_type_feature] and row[node_feature] != edge_to_add[0] else e for e in edge_to_add]
-            knn_data, knn_nodes = get_knn_data(G_restored, row[node_feature])
-            knn_nodes['type'] = knn_nodes[0].apply(lambda x: G_restored.nodes[x][node_type_feature])
-            knn_data = knn_data[knn_nodes['type'].isin(edge_to_add)]
-            knn_nodes = knn_nodes[knn_nodes['type'].isin(edge_to_add)]
-            knn = NearestNeighbors(n_neighbors=1, metric='cosine')
-            knn.fit(knn_data)
-            indice = knn.kneighbors(G_restored.nodes[row[node_feature]][embedding_feature].reshape(-1, 512), return_distance=False)
-            if edge_to_add[0] != row[node_feature]:
-                edge_to_add[0] = knn_nodes[0].iloc[indice[0][0]]
-            else:
-                edge_to_add[1] = knn_nodes[0].iloc[indice[0][0]]
-            restored_dict['true'].append([row[node_feature], row[neighbor_feature]])
-            restored_dict['restored'].append(edge_to_add)
-            restored_dict['edge_type'].append(key)
-            G_restored.add_edge(edge_to_add[0],edge_to_add[1],edge_type=key)
-    return G_restored, pd.DataFrame(restored_dict)
-
 # put embeddings on graph
 def embedding_graph(G, embeddings, embedding_feature='f'):
     for key, value in embeddings.items():
@@ -245,7 +87,6 @@ def masked_softmax_cross_entropy(preds, labels, mask):
     mask /= tf.reduce_mean(mask)
     loss *= mask
     return tf.reduce_mean(loss)
-
 
 def masked_accuracy(preds, labels, mask):
     """Accuracy with masking."""
@@ -447,3 +288,185 @@ def metapath2vec(graph, dimensions = 512, num_walks = 1, walk_length = 100, cont
 
         return _embeddings
     return get_embeddings(model, graph)
+
+def get_code(x, restored):
+    restored_value = [elem[1] for elem in restored if elem[0] == x[0]]
+    return_dict = {
+            'big_down': 0,
+            'down': 1,
+            'up': 2,
+            'big_up': 3,
+        }
+    return return_dict[x[1]], return_dict[restored_value[0]]
+
+def make_hin(df, 
+             id_feature='EventId', date_feature='WeekYear', date_value_feature='Date', 
+             what_feature='what', where_feature='where', who_feature='who', why_feature='why', how_feature='how',
+             commodities_feature='WeekYearCornTrend'
+             ):
+    G = nx.Graph()
+    for index,row in df.iterrows():
+        node_id = 'Event' + str(row[id_feature])
+        date_value = row[date_value_feature]
+        node_date = row[date_feature]
+        node_what = row[what_feature]
+        node_where = row[where_feature]
+        node_who = row[who_feature]
+        node_why = row[why_feature]
+        node_how = row[how_feature]
+        # label
+        node_commodities = row[commodities_feature]
+        
+        # event <-> date
+        G.add_edge(node_id, node_date, edge_type='event_date', edge_value=date_value)
+        G.nodes[node_id]['node_type'] = 'event'
+        G.nodes[node_date]['node_type'] = 'date'
+        # event <-> what
+        if node_what is not None:
+            G.add_edge(node_id, node_what, edge_type='event_what')
+            G.nodes[node_what]['node_type'] = 'what'
+        # event <-> where
+        if node_where is not None:
+            G.add_edge(node_id, node_where, edge_type='event_where')
+            G.nodes[node_where]['node_type'] = 'where'
+        # event <-> who
+        if node_who is not None:
+            G.add_edge(node_id, node_who, edge_type='event_who')
+            G.nodes[node_who]['node_type'] = 'who'
+        # event <-> why
+        if node_why is not None:
+            G.add_edge(node_id, node_why, edge_type='event_why')
+            G.nodes[node_why]['node_type'] = 'why'
+        # event <-> how
+        if node_how is not None:
+            G.add_edge(node_id, node_how, edge_type='event_how')
+            G.nodes[node_how]['node_type'] = 'how'
+        # event <-> trend
+        if node_commodities is not None:
+            G.add_edge(node_id, node_commodities, edge_type='event_trend')
+            G.nodes[node_commodities]['node_type'] = 'trend'
+        # embedding
+        G.nodes[node_id]['embedding'] = row.embedding
+    return G
+
+def difference(start, end, interval):
+    x = end - start
+    r = {
+            'week': int(x / np.timedelta64(1, 'W')),
+            'fortnight': int(x / np.timedelta64(2, 'W')),
+            'month': int(x / np.timedelta64(1, 'M'))
+        }
+    return r[interval]
+
+def inner_connections(G, interval='week', embedding_feature='embedding', type_feature='edge_type', desired_type_feature='event_date', value_feature='edge_value', return_type_feature='event_event'):
+    edges_to_add = []
+    for node1, neighbor1 in G.edges:
+        if embedding_feature in G.nodes[node1]:
+            if G[node1][neighbor1][type_feature] == desired_type_feature:
+                for node2, neighbor2 in G.edges:
+                    if embedding_feature in G.nodes[node2]:
+                        if G[node2][neighbor2][type_feature] == desired_type_feature:
+                            temp_cosine = cosine(G.nodes[node1][embedding_feature], G.nodes[node2][embedding_feature])
+                            if temp_cosine <= 0.5 and temp_cosine != 0.0:
+                                if abs(difference(G[node1][neighbor1][value_feature], G[node2][neighbor2][value_feature], interval)) <= 3:
+                                    edges_to_add.append((node1,node2))
+    for new_edge in edges_to_add:
+        G.add_edge(new_edge[0],new_edge[1],edge_type=return_type_feature)
+    return G
+
+def next_labels_cut(G,
+                    time_window=1, interval='week', edge_type='event_trend', type_feature='edge_type',
+                    node_type_feature='node_type', label_feature='trend', date_feture='date', event_feature='event'
+                    ):
+    def keep_left(x, G):
+        edge_split = x['type'].split('_')
+        if G.nodes[x['node']]['node_type'] != edge_split[0]:
+            x['node'], x['neighbor'] = x['neighbor'], x['node']
+        return x
+
+    # prepare data for type counting
+    edges = list(G.edges)
+    edge_types, edge_dates = [], []
+    for node, neighbor in edges:
+        edge_types.append(G[node][neighbor][type_feature])
+        if G.nodes[node][node_type_feature] == event_feature:
+            for edge in G.neighbors(node):
+                if G.nodes[edge][node_type_feature] == date_feture:
+                    edge_dates.append(edge)
+
+    # get labels for test
+    labels = pd.Series(edge_dates).unique()
+    labels = labels[len(labels)-time_window:]
+
+    edges = pd.DataFrame(edges)
+    edges = edges.rename(columns={0: 'node', 1: 'neighbor'})
+    edges['type'] = edge_types
+    edges = edges.apply(keep_left, G=G, axis=1)
+    events_to_cut = edges.groupby(
+        by=['node', 'neighbor'], as_index=False).count()
+    events_to_cut = events_to_cut['node'][events_to_cut['neighbor'].isin(
+        labels)]
+
+    to_cut = edges[edges['node'].isin(events_to_cut)]
+    to_cut = to_cut[to_cut['type'] == edge_type]
+    to_cut_dict = {edge_type: to_cut}
+
+    # eliminar arestas, salvar grafo e arestas retiradas para avaliação
+    G_disturbed = deepcopy(G)
+    for key, tc_df in to_cut_dict.items():
+        for index, row in tc_df.iterrows():
+            G_disturbed.remove_edge(row['node'], row['neighbor'])
+    return G_disturbed, to_cut_dict
+
+
+def type_code_graph(G, type_feature='node_type', event_type='event', label_feature='trend', label_number_feature='type_code'):
+    node_list = list(G.nodes())
+    label_codes = {
+        'big_down': 0,
+        'down': 1,
+        'up': 2,
+        'big_up': 3,
+    }
+    for node in node_list:
+        G.nodes[node][label_number_feature] = -1
+        if G.nodes[node][type_feature] == event_type:
+            for edge in G.neighbors(node):
+                if G.nodes[edge][type_feature] == label_feature:
+                    G.nodes[node][label_number_feature] = label_codes[edge]
+    return G
+
+from tensorflow.compat.v1.keras.layers import CuDNNLSTM
+from tensorflow.keras import backend as K
+from tensorflow.keras.utils import to_categorical
+from tensorflow.keras.layers import Dense
+from tensorflow.keras.models import Sequential
+
+def get_lstm(dimX, dimY):
+    model = Sequential()
+    model.add(CuDNNLSTM(256, input_shape=(1, dimX)))
+    model.add(Dense(dimY, activation='softmax'))
+    model.compile(loss='categorical_crossentropy',
+                  optimizer='adam', metrics=['accuracy'])
+    return model
+
+def prepare_train_test(G_disturbed, type_feature='node_type', label_number_feature='type_code', embedding_feature='f', event_type='event'):
+    X_train, X_test, y_train = [], [], []
+    for node in G_disturbed.nodes():
+        if G_disturbed.nodes[node][type_feature] == event_type:
+            if G_disturbed.nodes[node][label_number_feature] == -1:
+                X_test.append(G_disturbed.nodes[node][embedding_feature])
+            else:
+                X_train.append(G_disturbed.nodes[node][embedding_feature])
+                y_train.append(
+                    G_disturbed.nodes[node][label_number_feature])
+    y_train = to_categorical(y_train, num_classes=4)
+    X_train, X_test = np.asarray(X_train), np.asarray(X_test)
+    return X_train, X_test, y_train
+
+def period_year(date, interval):
+    string = ''
+    func_dict = {
+            'week': string + str(date.week) + '-' + str(date.year),
+            'month': string + str(date.month) + '-' + str(date.year),
+        }
+    return func_dict[interval]

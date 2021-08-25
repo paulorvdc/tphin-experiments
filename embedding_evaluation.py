@@ -3,17 +3,7 @@ import glob
 import os
 from tqdm import tqdm
 
-from ephin_utils import get_metric
-
-def get_code(x, restored):
-    restored_value = [elem[1] for elem in restored if elem[0] == x[0]]
-    return_dict = {
-            'big_down': 0,
-            'down': 1,
-            'up': 2,
-            'big_up': 3,
-        }
-    return return_dict[x[1]], return_dict[restored_value[0]]
+from tphin_utils import get_metric
 
 path = '/media/pauloricardo/basement/commodities_usecase/pred_iterative/'
 all_files = glob.glob(os.path.join(path, "*.csv"))
