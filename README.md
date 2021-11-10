@@ -18,5 +18,20 @@ metapath2vec stesubmodule based on https://stellargraph.readthedocs.io/en/stable
 ## networks
 networks with news from http://soybeansandcorn.com/ available at: https://drive.google.com/drive/folders/1WCyJDCWAt2ud_Mu38mZxNUU66B2bEz3M?usp=sharing
 
-## wip
-updates with improvements new experiments, methods, data and usability features will be posted with the research progress.
+## how to cite
+```
+@inproceedings{kdmile,
+ author = {P. do Carmo and I. Reis Filho and R. Marcacini},
+ title = {Commodities trend link prediction on heterogeneous information networks},
+ booktitle = {Anais do IX Symposium on Knowledge Discovery, Mining and Learning},
+ location = {Rio de Janeiro},
+ year = {2021},
+ keywords = {},
+ issn = {2763-8944},
+ pages = {81--88},
+ publisher = {SBC},
+ address = {Porto Alegre, RS, Brasil},
+ doi = {10.5753/kdmile.2021.17464},
+ url = {https://sol.sbc.org.br/index.php/kdmile/article/view/17464}
+}
+```
