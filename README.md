@@ -26,7 +26,6 @@ networks with news from http://soybeansandcorn.com/ available at: https://drive.
  booktitle = {Anais do IX Symposium on Knowledge Discovery, Mining and Learning},
  location = {Rio de Janeiro},
  year = {2021},
- keywords = {},
  issn = {2763-8944},
  pages = {81--88},
  publisher = {SBC},
